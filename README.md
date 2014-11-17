@@ -2,9 +2,9 @@
 
 This will get images from reddit.com and use feh to set it as your background. Mostly useful for tiling windows managers like wmii, i3, awesome or spectrwm
 
-*Note*: Http calls to reddit often result in timeouts or errors, you might need to run the script 2 or 3 times on some occasions for everything to work. By default running it once will attempt to contact get images 3 times.
+**Note**: Http calls to reddit often result in timeouts or errors, you might need to run the script 2 or 3 times on some occasions for everything to work. By default running it once will attempt to contact get images 3 times.
 
-*Note2*: It only currently support image links from imgur.com
+**Note2**: It only currently support image links from imgur.com
 
 ## Requirements:
 
