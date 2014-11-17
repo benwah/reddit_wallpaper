@@ -18,6 +18,7 @@ usage: reddit_wallpaper_getter.py [-h] [--destination DESTINATION]
 
 Use reddit for wallpapers
 
+<pre>
 optional arguments:
   -h, --help            show this help message and exit
   --destination DESTINATION
@@ -30,3 +31,4 @@ optional arguments:
                         Specify a subreddit .json url. (default http://www.reddit.com/r/wallpapers/top.json?sort=top&t=day)
   --set-wallpaper SET_WALLPAPER
                         Set wallpaper? (True / False), default is True
+</pre>
