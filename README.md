@@ -8,7 +8,7 @@ This will get images from reddit.com and use feh to set it as your background. M
 
 ## Requirements:
 
-* feh (sudo apt-get instal feh)
+* feh (sudo apt-get install feh)
 * Python 2.7+ or 3
 
 ## Usage:
