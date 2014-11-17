@@ -10,6 +10,7 @@ You can just run:
 
 Output of --help:
 
+<pre>
 usage: reddit_wallpaper_getter.py [-h] [--destination DESTINATION]
                                   [--overwrite-existing OVERWRITE_EXISTING]
                                   [--output-name OUTPUT_NAME]
@@ -18,7 +19,6 @@ usage: reddit_wallpaper_getter.py [-h] [--destination DESTINATION]
 
 Use reddit for wallpapers
 
-<pre>
 optional arguments:
   -h, --help            show this help message and exit
   --destination DESTINATION
