@@ -19,10 +19,11 @@ import socket
 
 
 REDDIT_URL = 'http://www.reddit.com/r/wallpapers/top.json?t=week&limit=50'
-TIMEOUT = 2
+TIMEOUT = 3
 DATA_DIR = os.path.join(os.path.expanduser("~"), '.r_wallpapers')
 
-MAX_ATTEMPTS = 3
+MAX_ATTEMPTS = 5
+SLEEP_SECONDS_AFTER_ATTEMPT = 2
 IMGUR_RE = re.compile(
     r'http://(i\.|www\.)?imgur.com/(?P<filename>\w{2,})(\.jpg|/)?$')
 RES_RE = re.compile('\d{3,5}x\d{3,5}')
@@ -86,11 +87,13 @@ def get_image(url, desired_res=None):
             break
         except HTTPError as e:
             # Too many requests, give reddit a break, try again.
+            print("JSON api throttled, attempt %s on %s" % (i, MAX_ATTEMPTS))
             if getattr(e, 'code', None) == 429:
-                time.sleep(1)
+                time.sleep(SLEEP_SECONDS_AFTER_ATTEMPT)
             i += 1
         except socket.timeout:
-            # Socket timeout, try again.
+            print("Timeout, attempt %s on %s" % (i, MAX_ATTEMPTS))
+            time.sleep(SLEEP_SECONDS_AFTER_ATTEMPT)
             i += 1
 
     candidates = []
@@ -148,10 +151,6 @@ def save_image(url, file_path):
         except socket.timeout:
             # Socket timeout, try again.
             i += 1
-
-
-def background_setter():
-    pass
 
 
 def display_image(file_path):
