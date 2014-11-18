@@ -1,15 +1,18 @@
 # Reddit wallpaper getter
 
-This will get images from reddit.com and use feh to set it as your background. Mostly useful for tiling windows managers like wmii, i3, awesome or spectrwm
+Run this script at startup to set your background to a random image from reddit, by default using /r/wallpapers. It works with gnome, smii, spectrwm, and perhaps others. Not KDE or XFCE as far as I know.
 
-**Note**: Http calls to reddit often result in timeouts or errors, you might need to run the script 2 or 3 times on some occasions for everything to work. By default running it once will attempt to contact get images 3 times.
+**Note**: Reddit sometimes throttles requests to it's json API, or sometimes the request times out. Try again if it fails to work.
 
 **Note2**: It only currently support image links from imgur.com
 
 ## Requirements:
 
-* feh (sudo apt-get install feh)
 * Python 2.7+ or 3
+
+For tiling window managers:
+
+* feh (sudo apt-get install feh)
 
 ## Usage:
 
