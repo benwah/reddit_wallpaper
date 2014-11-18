@@ -6,20 +6,23 @@ try:
 except ImportError:
     from urllib2 import urlopen
     from urllib2 import HTTPError
+import time
+import sys
 import subprocess
 import os
 import json
 import re
 import random
 import argparse
+import socket
 
 
 """
 To use default image viewer, install feh. This will work with WMII.
 """
 
-REDDIT_URL = 'http://www.reddit.com/r/wallpapers/top.json?sort=top&t=day'
-TIMEOUT = 0.75
+REDDIT_URL = 'http://www.reddit.com/r/wallpapers/top.json?t=week&limit=50'
+TIMEOUT = 2
 DATA_DIR = os.path.join(os.path.expanduser("~"), '.r_wallpapers')
 IMAGE_VIEWER = 'feh'
 IMAGE_VIEWS_ARGS = ['--bg-center']
@@ -27,6 +30,9 @@ IMAGE_VIEWS_ARGS = ['--bg-center']
 MAX_ATTEMPTS = 3
 IMGUR_RE = re.compile(
     r'http://(i\.|www\.)?imgur.com/(?P<filename>\w{2,})(\.jpg|/)?$')
+RES_RE = re.compile('\d{3,5}x\d{3,5}')
+RES_DATA_RE = re.compile(
+    b'.*([^\d]|^)+(?P<x>\d{3,5}) ?(x|_|\xd7){1} ?(?P<y>\d{3,5}).*', re.UNICODE)
 
 
 def get_url(post):
@@ -42,56 +48,80 @@ def get_url(post):
         return url + '.jpg'
 
 
-def get_filename(post, match_re=IMGUR_RE):
+def get_filename(post):
     """
     Gets the filename from the post object.
     """
     return (
-        match_re.match(post['data']['url']).group('filename')
+        IMGUR_RE.match(post['data']['url']).group('filename')
         + '.jpg')
 
 
-def get_image(url, max_attempts=MAX_ATTEMPTS, match_re=IMGUR_RE,
-              timeout=TIMEOUT):
+def get_image(url, desired_res=None):
     """
     Makes a call to reddit and returns one post randomly from the page
     specified in url.
     """
     i = 0
     while True:
-        if i == max_attempts:
+        if i == MAX_ATTEMPTS:
             raise Exception('Sorry, can\'t reach reddit.')
         try:
             data = json.loads(
-                urlopen(url, timeout=timeout).read().decode('utf-8'))
+                urlopen(url, timeout=TIMEOUT).read().decode('utf-8'))
             break
-        except HTTPError:
+        except HTTPError, e:
+            # Too many requests, give reddit a break, try again.
+            if getattr(e, 'code', None) == 429:
+                time.sleep(1)
             i += 1
-        
-    filtered_posts = list(filter(lambda x: match_re.match(
-                x.get('data', []).get('url', '')), data.get(
-                'data', []).get('children', [])))
+        except socket.timeout:
+            # Socket timeout, try again.
+            i += 1
 
-    selected_post = filtered_posts[
-        random.randint(0, len(filtered_posts) - 1)]
-    return (
-        get_url(selected_post),
-        get_filename(selected_post, match_re),
+    candidates = []
+
+    # Alright let's try to find some images with matching resolution.
+    for item in data.get('data', {}).get('children', {}):
+        url = item.get('data', {}).get('url', '')
+        if IMGUR_RE.match(url):
+            if desired_res:
+                title = item.get('data', {}).get('title', '')
+                permalink = item.get('data', {}).get('permalink', '')
+
+                match = (RES_DATA_RE.match(permalink) or
+                         RES_DATA_RE.match(title))
+
+                if match:
+                    found_res = match.groupdict()
+                    if (
+                            int(desired_res[0]) <= int(found_res['x'])
+                            and int(desired_res[1]) <= int(found_res['y'])):
+                        candidates.append(item)
+            else:
+                candidates.append(item)
+
+    if len(candidates) == 0:
+        return None
+    else:
+        image = candidates[random.randrange(0, len(candidates))]
+        return (
+            get_url(image),
+            get_filename(image),
         )
 
 
-def save_image(url, file_path, max_attempts=MAX_ATTEMPTS,
-               timeout=TIMEOUT):
+def save_image(url, file_path):
 
     f = open(file_path, 'wb')
 
     i = 0
     while True:
-        if i == max_attempts:
+        if i == MAX_ATTEMPTS:
             f.close()
             raise Exception('Sorry, can\'t reach imgur.')
         try:
-            data = urlopen(url, timeout=timeout).read()
+            data = urlopen(url, timeout=TIMEOUT).read()
             if len(data) > 0:
                 f.write(data)
             else:
@@ -99,8 +129,12 @@ def save_image(url, file_path, max_attempts=MAX_ATTEMPTS,
             f.close()
             break
         except HTTPError:
+            time.sleep(1)
             i += 1
-    
+        except socket.timeout:
+            # Socket timeout, try again.
+            i += 1
+
 
 def display_image(file_path, image_viewer=IMAGE_VIEWER,
                   extra_args=IMAGE_VIEWS_ARGS):
@@ -146,10 +180,17 @@ if __name__ == '__main__':
         '--set-wallpaper',
         type=str,
         default='True',
-        help=(
-            'Set wallpaper? (True / False), default is'
-            ' True'),
-        )
+        help='Set wallpaper? (True / False), default is True',
+    )
+
+    parser.add_argument(
+        '--min-resolution',
+        type=str,
+        default='None',
+        help=('Specify resolution (format is NxN, example: 1920x1080). '
+              'Enter from 3 to 5 digits. We\'ll try to guess the '
+              'resolution based on the post title and permalink')
+    )
 
     args = parser.parse_args()
 
@@ -161,15 +202,30 @@ if __name__ == '__main__':
             ('Destination directory %s does not exist, or is '
              'unreadable') % args.destination)
 
-    image = get_image(args.reddit_json_url)
+    if args.min_resolution == 'None':
+        desired_res = None
+    elif RES_RE.match(args.min_resolution):
+        desired_res = args.min_resolution.split('x')
+    else:
+        print "Error: Bad resolution, or resolution too big (or small)\n"
+        parser.print_help()
+        sys.exit(1)
+
+    image = get_image(args.reddit_json_url, desired_res=desired_res)
+
+    if not image:
+        print "No image found"
+        sys.exit(1)
+
     target_file_name = args.output_name or image[1]
     file_path = os.path.join(args.destination, target_file_name)
 
     if not os.path.exists(file_path) or (
-        os.path.exists(file_path) and args.overwrite_existing == 'True'):
+            os.path.exists(file_path) and
+            args.overwrite_existing == 'True'):
         save_image(image[0], file_path)
     else:
-        print("File exists on drive.")
+        print("File exists on drive. No need to download.")
 
     if args.set_wallpaper == 'True':
         display_image(file_path)

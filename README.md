@@ -25,6 +25,7 @@ usage: reddit_wallpaper_getter.py [-h] [--destination DESTINATION]
                                   [--output-name OUTPUT_NAME]
                                   [--reddit-json-url REDDIT_JSON_URL]
                                   [--set-wallpaper SET_WALLPAPER]
+                                  [--min-resolution MIN_RESOLUTION]
 
 Use reddit for wallpapers
 
@@ -33,11 +34,18 @@ optional arguments:
   --destination DESTINATION
                         Destination directory (default: /home/b/.r_wallpapers)
   --overwrite-existing OVERWRITE_EXISTING
-                        Overwrite file if exists? (True / False), default is False
+                        Overwrite file if exists? (True / False), default is
+                        False
   --output-name OUTPUT_NAME
                         Output filename (defaults to imgur name)
   --reddit-json-url REDDIT_JSON_URL
-                        Specify a subreddit .json url. (default http://www.reddit.com/r/wallpapers/top.json?sort=top&t=day)
+                        Specify a subreddit .json url. (default http://www.red
+                        dit.com/r/wallpapers/top.json?t=week&limit=50)
   --set-wallpaper SET_WALLPAPER
                         Set wallpaper? (True / False), default is True
+  --min-resolution MIN_RESOLUTION
+                        Specify resolution (format is NxN, example:
+                        1920x1080). Enter from 3 to 5 digits. We'll try to
+                        guess the resolution based on the post title and
+                        permalink
 </pre>
