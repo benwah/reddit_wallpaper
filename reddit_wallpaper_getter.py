@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 try:
     from urllib.request import urlopen
@@ -32,7 +33,7 @@ IMGUR_RE = re.compile(
     r'http://(i\.|www\.)?imgur.com/(?P<filename>\w{2,})(\.jpg|/)?$')
 RES_RE = re.compile('\d{3,5}x\d{3,5}')
 RES_DATA_RE = re.compile(
-    b'.*([^\d]|^)+(?P<x>\d{3,5}) ?(x|_|\xd7){1} ?(?P<y>\d{3,5}).*', re.UNICODE)
+    r'.*([^\d]|^)+(?P<x>\d{3,5}) ?(x|_|×){1} ?(?P<y>\d{3,5}).*', re.UNICODE)
 
 
 def get_url(post):
@@ -70,7 +71,7 @@ def get_image(url, desired_res=None):
             data = json.loads(
                 urlopen(url, timeout=TIMEOUT).read().decode('utf-8'))
             break
-        except HTTPError, e:
+        except HTTPError as e:
             # Too many requests, give reddit a break, try again.
             if getattr(e, 'code', None) == 429:
                 time.sleep(1)
@@ -207,14 +208,14 @@ if __name__ == '__main__':
     elif RES_RE.match(args.min_resolution):
         desired_res = args.min_resolution.split('x')
     else:
-        print "Error: Bad resolution, or resolution too big (or small)\n"
+        print("Error: Bad resolution, or resolution too big (or small)\n")
         parser.print_help()
         sys.exit(1)
 
     image = get_image(args.reddit_json_url, desired_res=desired_res)
 
     if not image:
-        print "No image found"
+        print("No image found")
         sys.exit(1)
 
     target_file_name = args.output_name or image[1]
