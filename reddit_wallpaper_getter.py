@@ -18,15 +18,9 @@ import argparse
 import socket
 
 
-"""
-To use default image viewer, install feh. This will work with WMII.
-"""
-
 REDDIT_URL = 'http://www.reddit.com/r/wallpapers/top.json?t=week&limit=50'
 TIMEOUT = 2
 DATA_DIR = os.path.join(os.path.expanduser("~"), '.r_wallpapers')
-IMAGE_VIEWER = 'feh'
-IMAGE_VIEWS_ARGS = ['--bg-center']
 
 MAX_ATTEMPTS = 3
 IMGUR_RE = re.compile(
@@ -34,6 +28,25 @@ IMGUR_RE = re.compile(
 RES_RE = re.compile('\d{3,5}x\d{3,5}')
 RES_DATA_RE = re.compile(
     r'.*([^\d]|^)+(?P<x>\d{3,5}) ?(x|_|×){1} ?(?P<y>\d{3,5}).*', re.UNICODE)
+
+
+ARG_MAP = {
+    'feh': ['feh', ['--bg-center'], '%s'],
+    'gnome': ['gsettings',
+              ['set', 'org.gnome.desktop.background', 'picture-uri'],
+              'file://%s']
+}
+
+WM_BKG_SETTERS = {
+    'spectrwm': ARG_MAP['feh'],
+    'scrotwm': ARG_MAP['feh'],
+    'wmii': ARG_MAP['feh'],
+    'i3': ARG_MAP['feh'],
+    'awesome': ARG_MAP['feh'],
+    'awesome-gnome': ARG_MAP['gnome'],
+    'gnome': ARG_MAP['gnome'],
+    'ubuntu': ARG_MAP['gnome']
+}
 
 
 def get_url(post):
@@ -137,10 +150,22 @@ def save_image(url, file_path):
             i += 1
 
 
-def display_image(file_path, image_viewer=IMAGE_VIEWER,
-                  extra_args=IMAGE_VIEWS_ARGS):
-    args = [image_viewer] + IMAGE_VIEWS_ARGS + [file_path]
-    subprocess.call(args)
+def background_setter():
+    pass
+
+
+def display_image(file_path):
+    # Try to find background setter
+    desktop_environ = os.environ.get('DESKTOP_SESSION', '')
+
+    if desktop_environ and desktop_environ in WM_BKG_SETTERS:
+        bkg_setter, args, pic_arg = WM_BKG_SETTERS.get(
+            desktop_environ, [None, None])
+    else:
+        bkg_setter, args, pic_arg = WM_BKG_SETTERS['spectrwm']
+
+    pargs = [bkg_setter] + args + [pic_arg % file_path]
+    subprocess.call(pargs)
 
 
 if __name__ == '__main__':
@@ -225,8 +250,6 @@ if __name__ == '__main__':
             os.path.exists(file_path) and
             args.overwrite_existing == 'True'):
         save_image(image[0], file_path)
-    else:
-        print("File exists on drive. No need to download.")
 
     if args.set_wallpaper == 'True':
         display_image(file_path)
