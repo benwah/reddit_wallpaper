@@ -1,12 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-try:
-    from urllib.request import urlopen
-    from urllib.error import HTTPError
-except ImportError:
-    from urllib2 import urlopen
-    from urllib2 import HTTPError
+from urllib.request import urlopen
+from urllib.error import HTTPError
 import time
 import sys
 import subprocess
@@ -18,58 +14,33 @@ import argparse
 import socket
 
 
-REDDIT_URL = 'http://www.reddit.com/r/wallpapers/top.json?t=week&limit=50'
+SOURCES = [
+    'http://www.reddit.com/r/WQHD_Wallpaper/top.json?t=week&limit=10',
+    'http://www.reddit.com/r/wallpapers/top.json?t=week&limit=10',
+    'http://www.reddit.com/r/wallpaper/top.json?t=week&limit=10',
+    'http://www.reddit.com/r/EarthPorn/top.json?t=week&limit=10',
+    'http://www.reddit.com/r/CityPorn/top.json?t=week&limit=10',
+    'http://www.reddit.com/r/SkyPorn/top.json?t=week&limit=10',
+    'http://www.reddit.com/r/WeatherPorn/top.json?t=week&limit=10',
+    'http://www.reddit.com/r/BotanicalPorn/top.json?t=week&limit=10',
+    'http://www.reddit.com/r/SpacePorn/top.json?t=week&limit=10',
+]
 TIMEOUT = 3
-DATA_DIR = os.path.join(os.path.expanduser("~"), '.r_wallpapers')
+DATA_DIR = os.path.join(os.path.expanduser("~"), 'Pictures', 'wallpapers')
 
-MAX_ATTEMPTS = 5
+MAX_ATTEMPTS = 3
 SLEEP_SECONDS_AFTER_ATTEMPT = 2
-IMGUR_RE = re.compile(
-    r'http://(i\.|www\.)?imgur.com/(?P<filename>\w{2,})(\.jpg|/)?$')
+REGEXES = [
+    re.compile(
+        r'https://i\.redd\.it/(?P<filename>\w{2,})(\.jpg|\.png|/)?$'
+    ),
+    re.compile(
+        r'https://live\.staticflickr\.com/[0-9]+/(?P<filename>[\w]+\.(png|jpg))'
+    ),
+]
 RES_RE = re.compile('\d{3,5}x\d{3,5}')
 RES_DATA_RE = re.compile(
     r'.*([^\d]|^)+(?P<x>\d{3,5}) ?(x|_|×){1} ?(?P<y>\d{3,5}).*', re.UNICODE)
-
-
-ARG_MAP = {
-    'feh': ['feh', ['--bg-center'], '%s'],
-    'gnome': ['gsettings',
-              ['set', 'org.gnome.desktop.background', 'picture-uri'],
-              'file://%s']
-}
-
-WM_BKG_SETTERS = {
-    'spectrwm': ARG_MAP['feh'],
-    'scrotwm': ARG_MAP['feh'],
-    'wmii': ARG_MAP['feh'],
-    'i3': ARG_MAP['feh'],
-    'awesome': ARG_MAP['feh'],
-    'awesome-gnome': ARG_MAP['gnome'],
-    'gnome': ARG_MAP['gnome'],
-    'ubuntu': ARG_MAP['gnome']
-}
-
-
-def get_url(post):
-    """
-    Gets the url of the actual JPG file from the post object.
-    """
-    url = post['data']['url']
-    if url.endswith == 'jpg':
-        return url
-    elif url.endswith == '/':
-        return url.strip('/') + '.jpg'
-    else:
-        return url + '.jpg'
-
-
-def get_filename(post):
-    """
-    Gets the filename from the post object.
-    """
-    return (
-        IMGUR_RE.match(post['data']['url']).group('filename')
-        + '.jpg')
 
 
 def get_image(url, desired_res=None):
@@ -84,6 +55,7 @@ def get_image(url, desired_res=None):
         try:
             data = json.loads(
                 urlopen(url, timeout=TIMEOUT).read().decode('utf-8'))
+
             break
         except HTTPError as e:
             # Too many requests, give reddit a break, try again.
@@ -101,42 +73,39 @@ def get_image(url, desired_res=None):
     # Alright let's try to find some images with matching resolution.
     for item in data.get('data', {}).get('children', {}):
         url = item.get('data', {}).get('url', '')
-        if IMGUR_RE.match(url):
-            if desired_res:
-                title = item.get('data', {}).get('title', '')
-                permalink = item.get('data', {}).get('permalink', '')
+        print(url)
+        for regex in REGEXES:
+            if image_match := regex.match(url):
+                if desired_res:
+                    title = item.get('data', {}).get('title', '')
+                    permalink = item.get('data', {}).get('permalink', '')
 
-                match = (RES_DATA_RE.match(permalink) or
-                         RES_DATA_RE.match(title))
+                    match = (RES_DATA_RE.match(permalink) or
+                             RES_DATA_RE.match(title))
 
-                if match:
-                    found_res = match.groupdict()
-                    if (
-                            int(desired_res[0]) <= int(found_res['x'])
-                            and int(desired_res[1]) <= int(found_res['y'])):
-                        candidates.append(item)
-            else:
-                candidates.append(item)
+                    if match:
+                        found_res = match.groupdict()
+                        if (
+                                int(desired_res[0]) <= int(found_res['x'])
+                                and int(desired_res[1]) <= int(found_res['y'])):
+                            candidates.append((url, image_match[1]))
+                else:
+                    candidates.append((url, image_match[1]))
 
     if len(candidates) == 0:
         return None
     else:
-        image = candidates[random.randrange(0, len(candidates))]
-        return (
-            get_url(image),
-            get_filename(image),
-        )
+        return random.choice(candidates)
 
 
 def save_image(url, file_path):
-
     f = open(file_path, 'wb')
 
     i = 0
     while True:
         if i == MAX_ATTEMPTS:
             f.close()
-            raise Exception('Sorry, can\'t reach imgur.')
+            raise Exception('Sorry, can\'t reach host.')
         try:
             data = urlopen(url, timeout=TIMEOUT).read()
             if len(data) > 0:
@@ -145,7 +114,7 @@ def save_image(url, file_path):
                 raise Exception('0 Bytes in download, exiting')
             f.close()
             break
-        except HTTPError:
+        except HTTPError as exc:
             time.sleep(1)
             i += 1
         except socket.timeout:
@@ -155,16 +124,24 @@ def save_image(url, file_path):
 
 def display_image(file_path):
     # Try to find background setter
-    desktop_environ = os.environ.get('DESKTOP_SESSION', '')
-
-    if desktop_environ and desktop_environ in WM_BKG_SETTERS:
-        bkg_setter, args, pic_arg = WM_BKG_SETTERS.get(
-            desktop_environ, [None, None])
-    else:
-        bkg_setter, args, pic_arg = WM_BKG_SETTERS['spectrwm']
-
-    pargs = [bkg_setter] + args + [pic_arg % file_path]
-    subprocess.call(pargs)
+    commands = [
+        [
+            'gsettings',
+            'set',
+            'org.gnome.desktop.background',
+            'picture-uri',
+            f'file://{file_path}'
+        ],
+        [
+            'gsettings',
+            'set',
+            'org.gnome.desktop.background',
+            'picture-uri-dark',
+            f'file://{file_path}'
+        ],
+    ]
+    for pargs in commands:
+        subprocess.call(pargs)
 
 
 if __name__ == '__main__':
@@ -197,8 +174,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--reddit-json-url',
         type=str,
-        default=REDDIT_URL,
-        help='Specify a subreddit .json url. (default %s)' % REDDIT_URL,
+        default=None,
+        help='Specify a subreddit .json url.'
         )
 
     parser.add_argument(
@@ -236,7 +213,10 @@ if __name__ == '__main__':
         parser.print_help()
         sys.exit(1)
 
-    image = get_image(args.reddit_json_url, desired_res=desired_res)
+    reddit_json_url = args.reddit_json_url or random.choice(SOURCES)
+
+    print(f"Attempting to fetch from {reddit_json_url}")
+    image = get_image(reddit_json_url, desired_res=desired_res)
 
     if not image:
         print("No image found")
